@@ -22,15 +22,68 @@ function ReportCrime() {
   const [success, setSuccess] = useState("");
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
+  if (
+    !title ||
+    !description ||
+    !crimeType ||
+    !location ||
+    !date ||
+    !severity
+  ) {
+    alert("Please fill all required fields.");
+    return;
+  }
+
+  try {
     setLoading(true);
     setSuccess("");
 
-    // Simulate submitting
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    let imageUrl = "";
 
-    setLoading(false);
+    // Upload image if selected
+    if (file) {
+      const fileName = `${Date.now()}-${file.name}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("crime-images")
+        .upload(fileName, file);
+
+      if (uploadError) {
+  console.log("UPLOAD ERROR:", uploadError);
+  alert("UPLOAD ERROR: " + uploadError.message);
+  return;
+}
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage
+        .from("crime-images")
+        .getPublicUrl(fileName);
+
+      imageUrl = publicUrl;
+    }
+
+    // Save report to database
+    const { error } = await supabase.from("crime_reports").insert([
+      {
+        title,
+        description,
+        crime_type: crimeType,
+        location,
+        crime_date: date,
+        crime_time: time,
+        severity,
+        image_url: imageUrl,
+      },
+    ]);
+
+    if (error) {
+  console.log("DATABASE ERROR:", error);
+  alert("DATABASE ERROR: " + error.message);
+  return;
+}
 
     setSuccess("✅ Crime report submitted successfully!");
 
@@ -43,7 +96,13 @@ function ReportCrime() {
     setTime("");
     setSeverity("");
     setFile(null);
-  };
+  } catch (err) {
+    console.error(err);
+    alert(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex justify-center items-center p-6">
